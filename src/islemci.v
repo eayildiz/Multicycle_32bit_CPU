@@ -59,9 +59,9 @@ always @ * begin
 
                     sonuc_yazmac = islenecek_buyruk[11:7];
                     
-                    islem_kodu = islenecek_buyruk[14:12]
+                    islem_kodu = islenecek_buyruk[14:12];
                 end
-
+                
             endcase
         end
 
@@ -81,7 +81,7 @@ always @(posedge clk) begin
         if (ilerle_cmb) begin
             simdiki_asama_r <= simdiki_asama_ns;
         end
-        ps_r <= ps_ns
+        ps_r <= ps_ns;
     end
 end
 
