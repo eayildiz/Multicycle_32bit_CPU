@@ -52,10 +52,11 @@ always @ * begin
         
         GETIR:
         begin
+            bellek_yaz_ns = 1'b0;   //TODO: kontrol et.
             islenecek_buyruk = bellek_oku_veri;  //Islenmesi gereken buyrugun program sayaci bellege gonderilir ve gelenbuyruk bir sonraki aşama için kayıt edilir. 
-            ps_ns = ps_r + 4;   //Getir asamasi istek yapildiktan sonra saatin yukselen kenarinda program sayacini gunceller.
-            ilerle_cmb = 1;
+            ps_ns = ps_r + 3'd4;   //Getir asamasi istek yapildiktan sonra saatin yukselen kenarinda program sayacini gunceller.
             simdiki_asama_ns = COZYAZMACOKU;
+            ilerle_cmb = 1'b1;
         end
         
         /*Olasi iyilestirmeler
@@ -65,6 +66,7 @@ always @ * begin
         */
         COZYAZMACOKU:
         begin
+            bellek_yaz_ns = 1'b0;
             case(islenecek_buyruk[6:2])
                 00000:  //LW
                 begin
@@ -135,6 +137,7 @@ always @ * begin
 
                 11000:  //BEQ
                 begin
+                    //13 bit deger isaretle 32 bit oluyor.
                     anlik_deger[12] = islenecek_buyruk[31];
                     anlik_deger[10:5] = islenecek_buyruk[30:25];
                     anlik_deger[4:1] = islenecek_buyruk[11:8];
@@ -164,6 +167,7 @@ always @ * begin
 
                 11011:  //JAL
                 begin
+                    //20 bit deger isaretle 32 bit oluyor.
                     anlik_deger2[20] = islenecek_buyruk[31];
                     anlik_deger2[10:1] = islenecek_buyruk[30:21];
                     anlik_deger2[11] = islenecek_buyruk[20];
@@ -178,12 +182,14 @@ always @ * begin
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
                 end
             endcase
-            ilerle_cmb = 1;
             simdiki_asama_ns = YURUTGERIYAZ;
+            ilerle_cmb = 1'b1;
         end
-        
+
         YURUTGERIYAZ:
         begin
+            bellek_yaz_ns = 1'b0;
+            ilerle_cmb = 1'b0;
             case(islenecek_buyruk[6:2])
                 00000:  //LW
                 begin
@@ -200,11 +206,10 @@ always @ * begin
                 
                 01000:  //SW
                 begin
-                    bellek_yaz_ns = 1;  //TODO: 0 yapmayi unutma.
+                    bellek_yaz_ns = 1'b1;
+
                     bellek_veri_adres_ns = kaynak_yazmac_1_veri + anlik_deger;
-                    bellek_yaz_veri_ns = kaynak_yazmac_2_veri;
-                    //TODO: Eger ilerleme_cb = 1 olursa bellek_yaz_ns 0 olsun.
-                    //TODO: Adres de ps_r olsun.
+                    bellek_yaz_veri_ns = kaynak_yazmac_2_veri;                    
                 end
                 
                 01100:  //AMB buyruklari
@@ -241,29 +246,34 @@ always @ * begin
                     yazmac_obegi[sonuc_yazmac] = ps_r;
                 end
             endcase
-            //simdiki_asama_ns = GETIR;
+            simdiki_asama_ns = GETIR;
         end
-
-        //TODO: cozulen mikroislemlerle gore hangi islemlerin yapilacagini da ilet. 
-    
     endcase
 end
 
-//TODO: bu always blogunu her buyruk icin uygun hale getir.
+//TODO: Bellek yazma, okuma kontrol et.
+//TODO: 3. asama islem bittigini kontrol et.
 always @(posedge clk) begin
-    if (rst) begin
+    if (rst)
+    begin
         ps_r <= `BELLEK_ADRES;
         simdiki_asama_r <= GETIR;
         bellek_yaz_ns = 1'b0;
         bellek_yaz_veri_ns = 32'd0;
     end
-    else begin
-        if (ilerle_cmb) begin
+    else
+    begin
+        if (ilerle_cmb)
+        begin
             simdiki_asama_r <= simdiki_asama_ns;
         end
+        
+        //TODO: Kontrol et.
+        if(simdiki_asama_r == GETIR)
+            ps_r <= ps_ns;
+        else
+            ps_r <= bellek_veri_adres_ns;
 
-        ps_r <= ps_ns;  //TODO ps_ns ya da bellek_yaz_ns baglansin.
-        //bellek_adres_r <= bellek_veri_adres_ns;
         bellek_yaz_r <= bellek_yaz_ns;
         bellek_yaz_veri_r <= bellek_yaz_veri_ns;
     end
