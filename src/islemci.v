@@ -5,7 +5,6 @@
 `define ADRES_BIT       32
 `define YAZMAC_SAYISI   32
 
-//TODO: anlik deger hesaplamalarinda isaretle genisleme degil oteleme yapildi! Duzelt!
 module islemci (
     input                       clk,
     input                       rst,
@@ -40,7 +39,6 @@ reg [`VERI_BIT:0] bellek_yaz_r;
 
 //Mikroislemler yazmaclari
 reg [`VERI_BIT:0] anlik_deger;
-reg [`VERI_BIT:0] anlik_deger2;
 reg [`VERI_BIT-1:0] kaynak_yazmac_1_veri;
 reg [`VERI_BIT-1:0] kaynak_yazmac_2_veri;
 reg [4:0] sonuc_yazmac;
@@ -70,7 +68,13 @@ always @ * begin
             case(islenecek_buyruk[6:2])
                 00000:  //LW
                 begin
-                    anlik_deger = islenecek_buyruk[31:20] <<< 20;   //12 bit deger isaretle 32 bit oluyor.
+                    //12 bit deger isaretle 32 bit oluyor.
+                    anlik_deger = islenecek_buyruk[31:20];
+                    if(anlik_deger[11] == 1'b1)
+                        anlik_deger[31:12] = 20'b11_111_111_111_111_111_111;
+                    else
+                        anlik_deger[31:12] = 12'b00_000_000_000_000_000_000;
+                    
 
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
                     sonuc_yazmac = islenecek_buyruk[11:7];
@@ -78,7 +82,12 @@ always @ * begin
                 
                 00100:  //ADDI
                 begin
-                    anlik_deger = islenecek_buyruk[31:20] <<< 20;   //12 bit deger isaretle 32 bit oluyor.
+                    //12 bit deger isaretle 32 bit oluyor.
+                    anlik_deger = islenecek_buyruk[31:20];
+                    if(anlik_deger[11] == 1'b1)
+                        anlik_deger[31:12] = 20'b11_111_111_111_111_111_111;
+                    else
+                        anlik_deger[31:12] = 12'b00_000_000_000_000_000_000;
 
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
                     sonuc_yazmac = islenecek_buyruk[11:7];
@@ -93,7 +102,12 @@ always @ * begin
 
                 01000:  //SW
                 begin
-                    anlik_deger = (islenecek_buyruk[31:25] <<< 5 + islenecek_buyruk[24:20]) <<< 20; //12 bit deger isaretle 32 bit oluyor.
+                    //12 bit deger isaretle 32 bit oluyor.
+                    anlik_deger = (islenecek_buyruk[31:25] <<< 5 + islenecek_buyruk[24:20]);
+                    if(anlik_deger[11] == 1'b1)
+                        anlik_deger[31:12] = 20'b11_111_111_111_111_111_111;
+                    else
+                        anlik_deger[31:12] = 20'b00_000_000_000_000_000_000;
 
                     kaynak_yazmac_2_veri = yazmac_obegi[islenecek_buyruk[24:20]];
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
@@ -114,19 +128,22 @@ always @ * begin
 
                 01101:  //LUI
                 begin
-                    anlik_deger = islenecek_buyruk[31:12];
+                    anlik_deger = islenecek_buyruk[31:12] << 12;
                 
                     sonuc_yazmac = islenecek_buyruk[11:7];
                 end
 
                 11000:  //BEQ
                 begin
-                    anlik_deger2[12] = islenecek_buyruk[31];
-                    anlik_deger2[10:5] = islenecek_buyruk[30:25];
-                    anlik_deger2[4:1] = islenecek_buyruk[11:8];
-                    anlik_deger2[11] = islenecek_buyruk[7];
-                    anlik_deger2[0] = 0;
-                    anlik_deger = anlik_deger2 <<< 19;
+                    anlik_deger[12] = islenecek_buyruk[31];
+                    anlik_deger[10:5] = islenecek_buyruk[30:25];
+                    anlik_deger[4:1] = islenecek_buyruk[11:8];
+                    anlik_deger[11] = islenecek_buyruk[7];
+                    anlik_deger[0] = 0;
+                    if(anlik_deger[12] == 1'b1)
+                        anlik_deger[31:13] = 19'b1_111_111_111_111_111_111;
+                    else
+                        anlik_deger[31:13] = 19'b0_000_000_000_000_000_000;
 
                     kaynak_yazmac_2_veri = yazmac_obegi[islenecek_buyruk[24:20]];
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
@@ -134,7 +151,12 @@ always @ * begin
 
                 11001:  //JALR
                 begin
-                    anlik_deger = islenecek_buyruk[31:20] <<< 20;   //12 bit deger isaretle 32 bit oluyor.
+                    //12 bit deger isaretle 32 bit oluyor.
+                    anlik_deger = islenecek_buyruk[31:20];
+                    if(anlik_deger[11] == 1'b1)
+                        anlik_deger[31:12] = 20'b11_111_111_111_111_111_111;
+                    else
+                        anlik_deger[31:12] = 20'b00_000_000_000_000_000_000;
 
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
                     sonuc_yazmac = islenecek_buyruk[11:7];
@@ -147,7 +169,10 @@ always @ * begin
                     anlik_deger2[11] = islenecek_buyruk[20];
                     anlik_deger2[19:12] = islenecek_buyruk[19:12];
                     anlik_deger2[0] = 0;
-                    anlik_deger = anlik_deger2 <<< 12;
+                    if(anlik_deger[20] == 1'b1)
+                        anlik_deger[31:21] = 11'b11_111_111_111;
+                    else
+                        anlik_deger[31:21] = 11'b00_000_000_000;
 
                     kaynak_yazmac_2_veri = yazmac_obegi[islenecek_buyruk[24:20]];
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
