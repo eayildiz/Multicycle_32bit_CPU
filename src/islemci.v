@@ -14,7 +14,7 @@ module islemci (
     output                      bellek_yaz
 );
 
-anabellek anabellek_(clk, bellek_adres, bellek_oku_veri, bellek_yaz_veri, bellek_yaz);
+//anabellek anabellek_(clk, bellek_adres, bellek_oku_veri, bellek_yaz_veri, bellek_yaz);
 
 localparam GETIR        = 2'd0;
 localparam COZYAZMACOKU = 2'd1;
@@ -29,9 +29,9 @@ reg [`VERI_BIT-1:0] islenecek_buyruk;
 reg [`ADRES_BIT-1:0] ps_r;
 reg [`ADRES_BIT-1:0] ps_ns;
 
-reg [`VERI_BIT:0] bellek_veri_adres_ns;
-reg [`VERI_BIT:0] bellek_yaz_veri_ns;
-reg [`VERI_BIT:0] bellek_yaz_ns;
+reg [`VERI_BIT:0] bellek_veri_adres_ns = `VERI_BIT'd2;
+reg [`VERI_BIT:0] bellek_yaz_veri_ns = `VERI_BIT'd3;
+reg [`VERI_BIT:0] bellek_yaz_ns = `VERI_BIT'd0;
 
 reg [`VERI_BIT:0] bellek_adres_r;
 reg [`VERI_BIT:0] bellek_yaz_veri_r;
@@ -45,16 +45,26 @@ reg [4:0] sonuc_yazmac;
 reg [2:0] islem_kodu;   //AMB icin detaylar
 
 
+initial begin:Yazmac
+    integer i;
+    for (i = 0; i < `YAZMAC_SAYISI; i = i + 1)
+    begin
+        islemci.yazmac_obegi[i] <= `VERI_BIT'd0;
+    end
+end
+
 
 //TODO: diger always bloguna gecisi kodla.
 always @ * begin
+    //saat_sayac_ns = saat_sayac_r + 1;
     case(simdiki_asama_r)
         
         GETIR:
         begin
             bellek_yaz_ns = 1'b0;   //TODO: kontrol et.
             islenecek_buyruk = bellek_oku_veri;  //Islenmesi gereken buyrugun program sayaci bellege gonderilir ve gelenbuyruk bir sonraki aşama için kayıt edilir. 
-            ps_ns = ps_r + 3'd4;   //Getir asamasi istek yapildiktan sonra saatin yukselen kenarinda program sayacini gunceller.
+            ps_ns = ps_r + `VERI_BIT'd4;   //Getir asamasi istek yapildiktan sonra saatin yukselen kenarinda program sayacini gunceller.
+            $display("%d asamasinda Islenecek buyruk: %b", simdiki_asama_r, islenecek_buyruk);
             simdiki_asama_ns = COZYAZMACOKU;
             ilerle_cmb = 1'b1;
         end
@@ -66,9 +76,10 @@ always @ * begin
         */
         COZYAZMACOKU:
         begin
+            $display("%d asamasinda Islenecek buyruk: %b", simdiki_asama_r, islenecek_buyruk);
             bellek_yaz_ns = 1'b0;
             case(islenecek_buyruk[6:2])
-                00000:  //LW
+                5'b00_000:  //LW
                 begin
                     //12 bit deger isaretle 32 bit oluyor.
                     anlik_deger = islenecek_buyruk[31:20];
@@ -78,11 +89,12 @@ always @ * begin
                         anlik_deger[31:12] = 12'b00_000_000_000_000_000_000;
                     
 
-                    kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
+                    //kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
+                    kaynak_yazmac_1_veri = 32'd32;
                     sonuc_yazmac = islenecek_buyruk[11:7];
                 end
                 
-                00100:  //ADDI
+                5'b00_100:  //ADDI
                 begin
                     //12 bit deger isaretle 32 bit oluyor.
                     anlik_deger = islenecek_buyruk[31:20];
@@ -92,17 +104,18 @@ always @ * begin
                         anlik_deger[31:12] = 12'b00_000_000_000_000_000_000;
 
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
+                    $display("ADDI islemi kaynaklari: yazmac %b ; flip flop %b", yazmac_obegi[islenecek_buyruk[19:15]], kaynak_yazmac_1_veri);
                     sonuc_yazmac = islenecek_buyruk[11:7];
                 end
 
-                00101:  //AUIPC
+                5'b00_101:  //AUIPC
                 begin
                     anlik_deger = islenecek_buyruk[31:12] << 12;
 
                     sonuc_yazmac = islenecek_buyruk[11:7];
                 end
 
-                01000:  //SW
+                5'b01_000:  //SW
                 begin
                     //12 bit deger isaretle 32 bit oluyor.
                     anlik_deger = (islenecek_buyruk[31:25] <<< 5 + islenecek_buyruk[24:20]);
@@ -115,7 +128,7 @@ always @ * begin
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
                 end
                 
-                01100:  //AMB buyruklari
+                5'b01_100:  //AMB buyruklari
                 begin
                     kaynak_yazmac_2_veri = yazmac_obegi[islenecek_buyruk[24:20]];
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
@@ -128,14 +141,14 @@ always @ * begin
                     end
                 end
 
-                01101:  //LUI
+                5'b01_101:  //LUI
                 begin
                     anlik_deger = islenecek_buyruk[31:12] << 12;
                 
                     sonuc_yazmac = islenecek_buyruk[11:7];
                 end
 
-                11000:  //BEQ
+                5'b11_000:  //BEQ
                 begin
                     //13 bit deger isaretle 32 bit oluyor.
                     anlik_deger[12] = islenecek_buyruk[31];
@@ -152,7 +165,7 @@ always @ * begin
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
                 end
 
-                11001:  //JALR
+                5'b11_001:  //JALR
                 begin
                     //12 bit deger isaretle 32 bit oluyor.
                     anlik_deger = islenecek_buyruk[31:20];
@@ -165,14 +178,14 @@ always @ * begin
                     sonuc_yazmac = islenecek_buyruk[11:7];
                 end
 
-                11011:  //JAL
+                5'b11_011:  //JAL
                 begin
                     //20 bit deger isaretle 32 bit oluyor.
-                    anlik_deger2[20] = islenecek_buyruk[31];
-                    anlik_deger2[10:1] = islenecek_buyruk[30:21];
-                    anlik_deger2[11] = islenecek_buyruk[20];
-                    anlik_deger2[19:12] = islenecek_buyruk[19:12];
-                    anlik_deger2[0] = 0;
+                    anlik_deger[20] = islenecek_buyruk[31];
+                    anlik_deger[10:1] = islenecek_buyruk[30:21];
+                    anlik_deger[11] = islenecek_buyruk[20];
+                    anlik_deger[19:12] = islenecek_buyruk[19:12];
+                    anlik_deger[0] = 1'b0;
                     if(anlik_deger[20] == 1'b1)
                         anlik_deger[31:21] = 11'b11_111_111_111;
                     else
@@ -181,30 +194,56 @@ always @ * begin
                     kaynak_yazmac_2_veri = yazmac_obegi[islenecek_buyruk[24:20]];
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
                 end
+
+                default:
+                begin
+                    $display("COZYAZMACOKU Hata");
+                    anlik_deger = 32'd0;
+                    islem_kodu = 3'd0;
+                    kaynak_yazmac_1_veri = 32'd0;
+                    kaynak_yazmac_2_veri = 32'd0;
+                    sonuc_yazmac = 5'd0;
+                end
             endcase
             simdiki_asama_ns = YURUTGERIYAZ;
             ilerle_cmb = 1'b1;
         end
+    endcase
+        end
 
-        YURUTGERIYAZ:
+//TODO: Adresin degismesine olanak tani. Sonra islemi yeniden yap.
+//Ekstra reg ile asamayi bolebilirsin.
+always @(*)
+begin
+    if(simdiki_asama_r == YURUTGERIYAZ)
         begin
+            $display("YURUTGERIYAZ Modu");
             bellek_yaz_ns = 1'b0;
             ilerle_cmb = 1'b0;
             case(islenecek_buyruk[6:2])
-                00000:  //LW
-                begin
-                    bellek_veri_adres_ns = kaynak_yazmac_1_veri + anlik_deger;
-                    yazmac_obegi[sonuc_yazmac] = bellek_oku_veri;
-                end
 
-                00100: yazmac_obegi[sonuc_yazmac] = kaynak_yazmac_1_veri + anlik_deger;  //ADDI
+            5'b00_000:  //LW
+            begin
+                bellek_veri_adres_ns = kaynak_yazmac_1_veri + anlik_deger;
+                yazmac_obegi[sonuc_yazmac] = bellek_oku_veri;
+                $display("LW islemi kaynaklari: %b ; %b", kaynak_yazmac_1_veri, anlik_deger);
+                $display("LW islemi Sonuc yazmaci %0d : %b", sonuc_yazmac, yazmac_obegi[sonuc_yazmac]);
+            end
+                        
+            5'b00_100:  //ADDI
+            begin
+                yazmac_obegi[sonuc_yazmac] = kaynak_yazmac_1_veri + anlik_deger;
+                $display("ADDI islemi kaynaklari: %b ; %b", kaynak_yazmac_1_veri, anlik_deger);
+                $display("ADDI islemi Sonuc yazmaci %0d : %b", sonuc_yazmac, yazmac_obegi[sonuc_yazmac]);
+            end
 
-                00101:  //AUIPC
+            5'b00_101:  //AUIPC
                 begin
-                    yazmac_obegi[sonuc_yazmac] = ps_r - 4 +  anlik_deger;
+                yazmac_obegi[sonuc_yazmac] = ps_r - `VERI_BIT'd4 +  anlik_deger;
+                $display("AUIPC islemi Sonuc yazmaci %0d : %b", sonuc_yazmac, yazmac_obegi[sonuc_yazmac]);
                 end
                 
-                01000:  //SW
+            5'b01_000:  //SW
                 begin
                     bellek_yaz_ns = 1'b1;
 
@@ -212,54 +251,62 @@ always @ * begin
                     bellek_yaz_veri_ns = kaynak_yazmac_2_veri;                    
                 end
                 
-                01100:  //AMB buyruklari
+            5'b01_100:  //AMB buyruklari
                 begin
                     case(islem_kodu)
-                        000: yazmac_obegi[sonuc_yazmac] = kaynak_yazmac_1_veri + kaynak_yazmac_2_veri;  //ADD
-                        010: yazmac_obegi[sonuc_yazmac] = kaynak_yazmac_1_veri - kaynak_yazmac_2_veri;  //SUB
-                        100: yazmac_obegi[sonuc_yazmac] = kaynak_yazmac_1_veri ^ kaynak_yazmac_2_veri;  //XOR
-                        110: yazmac_obegi[sonuc_yazmac] = kaynak_yazmac_1_veri | kaynak_yazmac_2_veri;  //OR
-                        111: yazmac_obegi[sonuc_yazmac] = kaynak_yazmac_1_veri & kaynak_yazmac_2_veri;  //AND
+                        3'b000: yazmac_obegi[sonuc_yazmac] = kaynak_yazmac_1_veri + kaynak_yazmac_2_veri;  //ADD
+                        3'b010: yazmac_obegi[sonuc_yazmac] = kaynak_yazmac_1_veri - kaynak_yazmac_2_veri;  //SUB
+                        3'b100: yazmac_obegi[sonuc_yazmac] = kaynak_yazmac_1_veri ^ kaynak_yazmac_2_veri;  //XOR
+                        3'b110: yazmac_obegi[sonuc_yazmac] = kaynak_yazmac_1_veri | kaynak_yazmac_2_veri;  //OR
+                        3'b111: yazmac_obegi[sonuc_yazmac] = kaynak_yazmac_1_veri & kaynak_yazmac_2_veri;  //AND
                     endcase
-                end
+                $display("AMB islemi kaynaklari: %b ; %b", kaynak_yazmac_1_veri, kaynak_yazmac_2_veri);
+                $display("AMB islemi Sonuc yazmaci %0d : %b", sonuc_yazmac, yazmac_obegi[sonuc_yazmac]);
+            end
 
-                01101: yazmac_obegi[sonuc_yazmac] = anlik_deger;    //LUI
-
-                11000:  //BEQ
+            5'b01_101:  //LUI
+            begin
+                yazmac_obegi[sonuc_yazmac] = anlik_deger;
+                $display("LUI islemi Sonuc yazmaci %0d : %b", sonuc_yazmac, yazmac_obegi[sonuc_yazmac]);
+            end
+            5'b11_000:  //BEQ
                 begin
                     if(kaynak_yazmac_1_veri == kaynak_yazmac_2_veri)
-                        ps_ns = ps_r - 4 + anlik_deger;
+                    ps_ns = ps_r - `VERI_BIT'd4 + anlik_deger;
                 end
 
-                11001:  //JALR
+            5'b11_001:  //JALR
                 begin
                     ps_ns = anlik_deger + kaynak_yazmac_1_veri;
-                    ps_ns[0] = 0;
+                ps_ns[0] = 1'b0;
 
                     yazmac_obegi[sonuc_yazmac] = ps_r;
+                $display("JALR islemi Sonuc yazmaci %0d : %b", sonuc_yazmac, yazmac_obegi[sonuc_yazmac]);
                 end
 
-                11011:  //JAL
+            5'b11_011:  //JAL
                 begin
-                    ps_ns = ps_r - 4 + anlik_deger;
+                ps_ns = ps_r - `VERI_BIT'd4 + anlik_deger;
 
                     yazmac_obegi[sonuc_yazmac] = ps_r;
+                $display("JAL islemi Sonuc yazmaci %0d : %b", sonuc_yazmac, yazmac_obegi[sonuc_yazmac]);
                 end
             endcase
             simdiki_asama_ns = GETIR;
         end
-    endcase
 end
 
 //TODO: Bellek yazma, okuma kontrol et.
 //TODO: 3. asama islem bittigini kontrol et.
 always @(posedge clk) begin
+    $display("Saat vurdu");
+    //saat_sayac_r <= saat_sayac_ns;
     if (rst)
     begin
         ps_r <= `BELLEK_ADRES;
         simdiki_asama_r <= GETIR;
-        bellek_yaz_ns = 1'b0;
-        bellek_yaz_veri_ns = 32'd0;
+        bellek_yaz_r <= 1'b0;
+        bellek_yaz_veri_r <= 32'd0;
     end
     else
     begin
@@ -268,14 +315,22 @@ always @(posedge clk) begin
             simdiki_asama_r <= simdiki_asama_ns;
         end
         
+        $display("%0d asamasinda", simdiki_asama_ns);
         //TODO: Kontrol et.
-        if(simdiki_asama_r == GETIR)
+        if(simdiki_asama_ns == GETIR)
+        begin
             ps_r <= ps_ns;
+            $display("%0d asamasinda Program Sayaci: %b", simdiki_asama_ns, ps_ns);
+        end
         else
+        begin
             ps_r <= bellek_veri_adres_ns;
+            $display("%0d asamasinda Bellek adresi: %b", simdiki_asama_ns, bellek_veri_adres_ns);
+        end
 
         bellek_yaz_r <= bellek_yaz_ns;
         bellek_yaz_veri_r <= bellek_yaz_veri_ns;
+        $display("%0d asamasinda Bellek veri: %b", simdiki_asama_ns, bellek_yaz_veri_ns);
     end
 end
 
