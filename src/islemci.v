@@ -20,14 +20,14 @@ localparam GETIR        = 2'd0;
 localparam COZYAZMACOKU = 2'd1;
 localparam YURUTGERIYAZ = 2'd2;
 
-reg [1:0] simdiki_asama_r;
 reg [1:0] simdiki_asama_ns;
+reg [1:0] simdiki_asama_r;
 reg ilerle_cmb;
 
 reg [`VERI_BIT-1:0] yazmac_obegi [0:`YAZMAC_SAYISI-1];
 reg [`VERI_BIT-1:0] islenecek_buyruk;
-reg [`ADRES_BIT-1:0] ps_r;
 reg [`ADRES_BIT-1:0] ps_ns;
+reg [`ADRES_BIT-1:0] ps_r;
 
 reg [`VERI_BIT-1:0] bellek_veri_adres_ns = `VERI_BIT'd96;
 reg [`VERI_BIT-1:0] bellek_yaz_veri_ns = `VERI_BIT'd96;
@@ -214,8 +214,6 @@ always @ * begin
 reg bellek_veri_erisme_adresi_guncel_ns = 1'b0;
 reg bellek_veri_erisme_adresi_guncel_r = 1'b0;
 
-//TODO: Adresin degismesine olanak tani. Sonra islemi yeniden yap.
-//Ekstra reg ile asamayi bolebilirsin.
 always @(*)
 begin
     if(simdiki_asama_r == YURUTGERIYAZ)
@@ -352,8 +350,6 @@ begin
     end
 end
 
-//TODO: Bellek yazma, okuma kontrol et.
-//TODO: 3. asama islem bittigini kontrol et.
 always @(posedge clk) begin
     //$display("Saat vurdu");
     if (rst)
@@ -373,7 +369,6 @@ always @(posedge clk) begin
         end
         
         //$display("%0d asamasinda ilerle_cmb: %d degerinde", simdiki_asama_ns, ilerle_cmb);
-        //TODO: Kontrol et.
         if(simdiki_asama_ns == GETIR)
         begin
             ps_r <= ps_ns;

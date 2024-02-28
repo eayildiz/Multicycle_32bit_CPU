@@ -5,7 +5,7 @@
 `define ADRES_BIT       32
 `define YAZMAC_SAYISI   32
 
-module islemci (
+module islemci_ous (
     input                       clk,
     input                       rst,
     output  [`ADRES_BIT-1:0]    bellek_adres,
@@ -20,14 +20,14 @@ localparam GETIR        = 2'd0;
 localparam COZYAZMACOKU = 2'd1;
 localparam YURUTGERIYAZ = 2'd2;
 
-reg [1:0] simdiki_asama_r;
 reg [1:0] simdiki_asama_ns;
+reg [1:0] simdiki_asama_r;
 reg ilerle_cmb;
 
 reg [`VERI_BIT-1:0] yazmac_obegi [0:`YAZMAC_SAYISI-1];
 reg [`VERI_BIT-1:0] islenecek_buyruk;
-reg [`ADRES_BIT-1:0] ps_r;
 reg [`ADRES_BIT-1:0] ps_ns;
+reg [`ADRES_BIT-1:0] ps_r;
 
 reg [`VERI_BIT-1:0] bellek_veri_adres_ns = `VERI_BIT'd96;
 reg [`VERI_BIT-1:0] bellek_yaz_veri_ns = `VERI_BIT'd96;
@@ -44,12 +44,20 @@ reg [`VERI_BIT-1:0] kaynak_yazmac_2_veri;
 reg [4:0] sonuc_yazmac;
 reg [2:0] islem_kodu;   //AMB icin detaylar
 
+//Kirby Siralama flip floplari
+reg [4:0] kaynak_yazmac = 5'd1;
+
+reg [4:0] uzunluk = 5'd0;
+reg [4:0] dongu_sirasi_ns = 5'd0;
+reg [5:0] yazilan_deger_sayisi_ns = 5'd0;
+reg [4:0] dongu_sirasi_r = 5'd0;
+reg [5:0] yazilan_deger_sayisi_r = 5'd0;
 
 initial begin:Yazmac_doldurma
     integer i;
     for (i = 0; i < `YAZMAC_SAYISI; i = i + 1)
     begin
-        islemci.yazmac_obegi[i] <= `VERI_BIT'd0;
+        islemci_ous.yazmac_obegi[i] <= `VERI_BIT'd0;
     end
 end
 
@@ -195,6 +203,15 @@ always @ * begin
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
                 end
 
+                5'b11_100:  //KS
+                begin
+                    uzunluk = islenecek_buyruk[24:20];
+                    kaynak_yazmac = islenecek_buyruk[19:15];
+                    sonuc_yazmac = islenecek_buyruk[11:7];
+                    dongu_sirasi_ns = 5'd0;
+                    yazilan_deger_sayisi_ns = 5'd0;
+                end
+
                 default:
                 begin
                     $display("COZYAZMACOKU Hata");
@@ -211,11 +228,10 @@ always @ * begin
     endcase
         end
 
+//Bellek adres guncelleme flip floplari
 reg bellek_veri_erisme_adresi_guncel_ns = 1'b0;
 reg bellek_veri_erisme_adresi_guncel_r = 1'b0;
 
-//TODO: Adresin degismesine olanak tani. Sonra islemi yeniden yap.
-//Ekstra reg ile asamayi bolebilirsin.
 always @(*)
 begin
     if(simdiki_asama_r == YURUTGERIYAZ)
@@ -342,6 +358,29 @@ begin
                 //$display("JAL islemi Sonuc yazmaci %0d : %b", sonuc_yazmac, yazmac_obegi[sonuc_yazmac]);
             end
 
+            5'b11_100:  //KS
+            begin
+                if(dongu_sirasi_ns < uzunluk)
+                begin
+                    if(dongu_sirasi_ns == 5'd0)
+                    begin
+                        yazmac_obegi[sonuc_yazmac] = yazmac_obegi[kaynak_yazmac];
+                        yazilan_deger_sayisi_ns = yazilan_deger_sayisi_r + 1;
+                    end
+                    else if(yazmac_obegi[kaynak_yazmac + dongu_sirasi_ns] >= yazmac_obegi[kaynak_yazmac + dongu_sirasi_ns - 1])
+                    begin
+                        yazmac_obegi[sonuc_yazmac + yazilan_deger_sayisi_r] = yazmac_obegi[kaynak_yazmac + dongu_sirasi_ns];
+                        yazilan_deger_sayisi_ns = yazilan_deger_sayisi_r + 1;
+                    end
+                    dongu_sirasi_ns = dongu_sirasi_r + 1;
+                end
+                else
+                begin
+                    simdiki_asama_ns = GETIR;
+                    ilerle_cmb = 1'b1;
+                end
+            end
+
             default:
             begin
                 $display("YURUTGERIYAZ Hata");
@@ -352,8 +391,6 @@ begin
     end
 end
 
-//TODO: Bellek yazma, okuma kontrol et.
-//TODO: 3. asama islem bittigini kontrol et.
 always @(posedge clk) begin
     //$display("Saat vurdu");
     if (rst)
@@ -373,7 +410,6 @@ always @(posedge clk) begin
         end
         
         //$display("%0d asamasinda ilerle_cmb: %d degerinde", simdiki_asama_ns, ilerle_cmb);
-        //TODO: Kontrol et.
         if(simdiki_asama_ns == GETIR)
         begin
             ps_r <= ps_ns;
@@ -389,6 +425,9 @@ always @(posedge clk) begin
         bellek_yaz_veri_r <= bellek_yaz_veri_ns;
         bellek_veri_erisme_adresi_guncel_r <= bellek_veri_erisme_adresi_guncel_ns;
         //$display("%0d asamasinda Bellek veri: %h", simdiki_asama_ns, bellek_yaz_veri_ns);
+
+        dongu_sirasi_r <= dongu_sirasi_ns;
+        yazilan_deger_sayisi_r <= yazilan_deger_sayisi_ns;
     end
 end
 
