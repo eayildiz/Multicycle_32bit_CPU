@@ -44,14 +44,18 @@ reg [`VERI_BIT-1:0] kaynak_yazmac_2_veri;
 reg [4:0] sonuc_yazmac;
 reg [2:0] islem_kodu;   //AMB icin detaylar
 
-//Kirby Siralama flip floplari
+//Kirby Siralama(KS) & Doge Store(DS) flip floplari
 reg [4:0] kaynak_yazmac = 5'd1;
 
 reg [4:0] uzunluk = 5'd0;
+
 reg [4:0] dongu_sirasi_ns = 5'd0;
-reg [5:0] yazilan_deger_sayisi_ns = 5'd0;
+reg [4:0] yazilan_deger_sayisi_ns = 5'd0;
+reg [`VERI_BIT-1:0] hedef_adres_ns = `VERI_BIT'h8000_0000;
+
 reg [4:0] dongu_sirasi_r = 5'd0;
-reg [5:0] yazilan_deger_sayisi_r = 5'd0;
+reg [4:0] yazilan_deger_sayisi_r = 5'd0;
+reg [`VERI_BIT-1:0] hedef_adres_r = `VERI_BIT'h8000_0000;
 
 initial begin:Yazmac_doldurma
     integer i;
@@ -203,11 +207,15 @@ always @ * begin
                     kaynak_yazmac_1_veri = yazmac_obegi[islenecek_buyruk[19:15]];
                 end
 
-                5'b11_100:  //KS
+                5'b11_100:  //KS & DS
                 begin
                     uzunluk = islenecek_buyruk[24:20];
                     kaynak_yazmac = islenecek_buyruk[19:15];
-                    sonuc_yazmac = islenecek_buyruk[11:7];
+                    sonuc_yazmac = islenecek_buyruk[11:7];                  //Sadece KS icin.
+                    hedef_adres_ns = yazmac_obegi[islenecek_buyruk[11:7]];  //Sadece DS icin.
+
+                    islem_kodu = islenecek_buyruk[14:12];
+
                     dongu_sirasi_ns = 5'd0;
                     yazilan_deger_sayisi_ns = 5'd0;
                 end
@@ -358,27 +366,63 @@ begin
                 //$display("JAL islemi Sonuc yazmaci %0d : %b", sonuc_yazmac, yazmac_obegi[sonuc_yazmac]);
             end
 
-            5'b11_100:  //KS
+            5'b11_100:  //KS & DS
             begin
-                if(dongu_sirasi_ns < uzunluk)
-                begin
-                    if(dongu_sirasi_ns == 5'd0)
+                case(islem_kodu)
+                    3'b001: //KS
                     begin
-                        yazmac_obegi[sonuc_yazmac] = yazmac_obegi[kaynak_yazmac];
-                        yazilan_deger_sayisi_ns = yazilan_deger_sayisi_r + 1;
+                        if(dongu_sirasi_r < uzunluk)
+                        begin
+                            if(dongu_sirasi_r == 5'd0)
+                            begin
+                                yazmac_obegi[sonuc_yazmac] = yazmac_obegi[kaynak_yazmac];
+                                yazilan_deger_sayisi_ns = yazilan_deger_sayisi_r + 1;
+                            end
+                            else if(yazmac_obegi[kaynak_yazmac + dongu_sirasi_r] >= yazmac_obegi[kaynak_yazmac + dongu_sirasi_r - 1])
+                            begin
+                                yazmac_obegi[sonuc_yazmac + yazilan_deger_sayisi_r] = yazmac_obegi[kaynak_yazmac + dongu_sirasi_r];
+                                yazilan_deger_sayisi_ns = yazilan_deger_sayisi_r + 1;
+                            end
+                            dongu_sirasi_ns = dongu_sirasi_r + 1;
+                        end
+                        else
+                        begin
+                            simdiki_asama_ns = GETIR;
+                            ilerle_cmb = 1'b1;
+                        end
                     end
-                    else if(yazmac_obegi[kaynak_yazmac + dongu_sirasi_ns] >= yazmac_obegi[kaynak_yazmac + dongu_sirasi_ns - 1])
+                    3'b010: //DS
                     begin
-                        yazmac_obegi[sonuc_yazmac + yazilan_deger_sayisi_r] = yazmac_obegi[kaynak_yazmac + dongu_sirasi_ns];
-                        yazilan_deger_sayisi_ns = yazilan_deger_sayisi_r + 1;
+                        if(dongu_sirasi_r < uzunluk)
+                        begin
+                            if(!bellek_veri_erisme_adresi_guncel_r) //Degerleri yazmak icin kablolara yollama.
+                            begin
+                                bellek_yaz_ns = 1'b1;
+                                bellek_veri_adres_ns = hedef_adres_r;
+                                bellek_yaz_veri_ns = yazmac_obegi[kaynak_yazmac + dongu_sirasi_r];
+
+                                bellek_veri_erisme_adresi_guncel_ns = 1'b1;
+                                //$display("DS adresi: %h", bellek_veri_adres_ns);
+                                //$display("DS yazilan deger: %h", bellek_yaz_veri_ns);
+                                //$display("DS komutu, ilerle_cmb: %b", ilerle_cmb);
+                            end
+                            else    //Adres guncellemesi
+                            begin
+                                bellek_yaz_ns = 1'b0;
+                                hedef_adres_ns = hedef_adres_r + 32'd4;
+                                dongu_sirasi_ns = dongu_sirasi_r + 1;
+                                
+                                bellek_veri_erisme_adresi_guncel_ns = 1'b0;
+                                //$display("DS komutu, ilerle_cmb: %b", ilerle_cmb);
+                            end
+                        end
+                        else
+                        begin
+                            simdiki_asama_ns = GETIR;
+                            ilerle_cmb = 1'b1;
+                        end
                     end
-                    dongu_sirasi_ns = dongu_sirasi_r + 1;
-                end
-                else
-                begin
-                    simdiki_asama_ns = GETIR;
-                    ilerle_cmb = 1'b1;
-                end
+                endcase
             end
 
             default:
@@ -426,8 +470,10 @@ always @(posedge clk) begin
         bellek_veri_erisme_adresi_guncel_r <= bellek_veri_erisme_adresi_guncel_ns;
         //$display("%0d asamasinda Bellek veri: %h", simdiki_asama_ns, bellek_yaz_veri_ns);
 
+        //KS & DS
         dongu_sirasi_r <= dongu_sirasi_ns;
         yazilan_deger_sayisi_r <= yazilan_deger_sayisi_ns;
+        hedef_adres_r <= hedef_adres_ns;
     end
 end
 
