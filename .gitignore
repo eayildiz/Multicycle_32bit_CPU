@@ -2,3 +2,4 @@
 #Although I write my code for vivado, there is no need to track them.
 #Source files must add outside of this directory.
 src_vivado/
+vds_out/Multicycle_32bit_CPU.runs.lnk
